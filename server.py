@@ -1,5 +1,7 @@
+#Declarations
 import socket
 import threading
+import time
 from datetime import datetime
 
 #Declarations
@@ -18,92 +20,139 @@ registered_users = {
 active_users = {}  #Username to client_socket for currently logged-in users
 user_lock = threading.Lock()  #Lock to protect shared access to active_users
 
+# Max 3 clients at a time
+client_semaphore = threading.Semaphore(3)
+waiting_clients = []  #Queue of (client_socket, address)
+
 #Creating Server socket
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #We use IPV4 and TCP
-#Binding the Server Socket to an IP adress and a Port
+server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  #Allow reusing port
 server_socket.bind((host_ip, port))
-#Listening for connections
 server_socket.listen()
 
 print(f"[+] Server running at {host_ip}:{port}")
 
 #Forward a recieved message back to it's real destination
 def forward(message, sender=None):
-    timestamp = datetime.now().strftime("[%H:%M:%S] ")  #Add timestamp prefix
+    timestamp = datetime.now().strftime("[%H:%M:%S] ") #Add timestamp to messages
     with user_lock:
-        for user, sock in active_users.items():
-            if user != sender:  #Don't send message back to sender
+        for user, sock in active_users.items(): #Send message to all users except sender
+            if user != sender:
                 try:
-                    sock.send(f"{timestamp}{message}\n".encode())  #Send the message
+                    sock.send(f"{timestamp}{message}\n".encode())
                 except:
-                    pass  #Ignore failed sends
+                    pass #Ignore failures
 
-#Connect incoming client
+#Handle actual client after reaching front of queue
 def handle_client(client_socket, addr):
-    username = None  #Default in case we fail early
-
+    username = None
     try:
         #Prompt for login
         client_socket.send("Username: ".encode()) 
         username = client_socket.recv(bytesize).decode().strip()  
-
+        #Prompt for password
         client_socket.send("Password: ".encode())  
         password = client_socket.recv(bytesize).decode().strip() 
-
-        #Validate credentials
+        #Login fail message
         if registered_users.get(username) != password:
-            client_socket.send("Login failed. Disconnecting.".encode())  #Reject client
+            client_socket.send("Login failed. Disconnecting.".encode())
             client_socket.close()
             return
-
-        #Check for duplicate login
         with user_lock:
             if username in active_users:
-                client_socket.send("User already logged in.".encode())  #Prevent double login
+                client_socket.send("User already logged in.".encode())
                 client_socket.close()
                 return
-            active_users[username] = client_socket  #Add to active users
-
-        #Confirm login
-        client_socket.send(f"Login successful. Welcome {username}!".encode())  #Acknowledge
+            active_users[username] = client_socket #Add to active user list
+        #Login successful
+        client_socket.send(f"Login successful. Welcome {username}!".encode())
         print(f"[+] {username} successfully logged in from {addr}")
         forward(f"[Server]: {username} has joined the chat.", sender=username)
 
-        #Listen for messages
+        #Main chat loop
         while True:
-            message = client_socket.recv(bytesize).decode()  #Wait for message from client
+            message = client_socket.recv(bytesize).decode() #Wait for message
             if not message:
-                break  #Client disconnected
+                break
 
             if message.strip().lower() == "/quit":
-                break  #User requested to quit
+                break #User requested to leave
 
             if message.strip().lower() == "/available":
                 with user_lock:
-                    online_users = [u for u in active_users if u != username]  #Exclude self
+                    online_users = [u for u in active_users if u != username] #Get other users
 
                 response = "[Server]: Online users: "
                 response += ', '.join(online_users) if online_users else "No other users online."
 
-                client_socket.send(response.encode())  #Send user list to requester
+                client_socket.send(response.encode()) #Send list to requesting user
                 continue
 
-            timestamp = datetime.now().strftime("[%H:%M:%S]")  #Timestamp for server log
-            print(f"{timestamp} [{username}]: {message}")  #Log to server console
-            forward(f"{username}: {message}", sender=username)  #Forward to others
+            timestamp = datetime.now().strftime("[%H:%M:%S]") #Server log with time
+            print(f"{timestamp} [{username}]: {message}")
+            forward(f"{username}: {message}", sender=username) #Relay to others
 
     except Exception as e:
-        print(f"[ERROR] {e}")
+        print(f"[ERROR] {e}") # Print error
 
     finally:
         with user_lock:
             if username in active_users:
-                del active_users[username]  #Remove from active list
+                del active_users[username] #Remove from active users
                 print(f"[-] {username} disconnected")
                 forward(f"[Server]: {username} has left the chat.", sender=username)
-        client_socket.close()  #Clean up socket
+        client_socket.close()
+        client_semaphore.release()  #Release the slot
 
-#Start the server loop
-while True:
-    client_socket, client_address = server_socket.accept()  #Accept new client
-    threading.Thread(target=handle_client, args=(client_socket, client_address)).start()
+# Monitor queue and promote clients when space opens
+def queue_manager():
+    while True:
+        time.sleep(1) #Check queue once per second
+        if waiting_clients and client_semaphore._value > 0:
+            with user_lock:
+                next_client, addr = waiting_clients.pop(0) #Take next client from queue
+            threading.Thread(target=enter_chat, args=(next_client, addr)).start() #Allow to try joining
+
+# Handles queue wait and transition
+def enter_chat(client_socket, addr):
+    try:
+        while True:
+            with user_lock:
+                position = waiting_clients.index((client_socket, addr)) + 1 if (client_socket, addr) in waiting_clients else 0
+
+            if client_semaphore.acquire(blocking=False):
+                # Accepted into active clients
+                handle_client(client_socket, addr)
+                break
+            else:
+                if position > 0:
+                    try:
+                        client_socket.send(f"[Server]: All slots full. You are #{position} in the queue.\n".encode())
+                    except:
+                        pass #Ignore send failure
+                time.sleep(3) # Retry after short delay
+    except:
+        pass  #Client disconnected while waiting
+
+#Accept incoming connections
+def accept_connections():
+    while True:
+        client_socket, client_address = server_socket.accept() #Accept new client
+        print(f"[!] Incoming connection from {client_address}")
+
+        with user_lock:
+            if client_semaphore._value > 0:
+                client_semaphore.acquire() #Take a slot immediately
+                threading.Thread(target=handle_client, args=(client_socket, client_address)).start()
+            else:
+                waiting_clients.append((client_socket, client_address)) #Add to waiting list
+                threading.Thread(target=enter_chat, args=(client_socket, client_address)).start()
+
+#Start threads
+threading.Thread(target=queue_manager, daemon=True).start() #Run queue manager in background
+accept_connections() #Start accepting clients
+
+
+
+
+
