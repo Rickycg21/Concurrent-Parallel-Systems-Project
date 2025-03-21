@@ -10,26 +10,40 @@ client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #We use IPV4 a
 #Connecting the Client Socket with an IP adress and the Server's Port
 client_socket.connect((host_ip, port))
 
-#Send and Recieve Messages
-while True:
-    message = client_socket.recv(bytesize).decode() #Recieve the message and decode
+#Send a message to the server
+def send_message():
+    while True:
+        message = input("Client: ")
+        client_socket.send(f"\nClient: {message}".encode()) #Encode and send the message
 
-    #Check if server quits
-    if message == "quit":
-        client_socket.send("quit".encode()) #Send Comfirmation to the Server
-        print("\nDisconnected.")
-        break
-    #If not send message
-    else:
-        print(f"\n{message}")
-        message = input("\nClient: ")
-        client_socket.send(message.encode()) #Encode and send the message
+        #Check if client wants to quit
+        if message == "quit":
+            print("\nDisconnected.")
+            client_socket.close()
+            break
+    
+#Recieve a message from the server
+def receive_message():
+    while True:
+        #Recieve the message and decode
+        message = client_socket.recv(bytesize).decode() 
+        #Check if the server quits
+        if message == "quit":
+            client_socket.send("quit".encode()) #Send Comfirmation to the Server
+            print("\nDisconnected.")
+            client_socket.close()
+            break
+        #Print the message
+        else:
+            print(f"\n{message}")
 
-#Close
+
+t1 = threading.Thread(target=send_message)
+t2 = threading.Thread(target=receive_message)
+
+t1.start()
+t2.start()
+t1.join()
+t2.join()
+
 client_socket.close()
-
-
-
-
-
-

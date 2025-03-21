@@ -16,33 +16,58 @@ server_socket.bind((host_ip, port))
 #Listening for connections
 server_socket.listen()
 
-
-
-
 #Accept connections and get the Client's socket and adrdess
 client_socket, client_address = server_socket.accept()
+client_socket_list.append(client_socket)
 #Send notification to the client that he has been connected
 client_socket.send("Connected to Server.".encode()) #Make sure the String is encode
 print("Client Connected")
 
-#Send and Receive messages
-while True:
-    message = client_socket.recv(bytesize).decode() #Recieve Messages and decode
+#Forward a recieved message back to everyone else
+def forward_message(message):
+    pass
 
-    #Check if client quits
-    if message == "quit":
-        client_socket.send("quit".encode()) #Send Comfirmation to the Server
-        print("\nDisconnected.")
-        break
-    #If not send message
-    else:
-        print(f"\n{message}")
-        message = input("\nServer: ")
-        client_socket.send(message.encode())#Encode and send the message
+def send_message():
+    while True:
+        message = input("Server: ")
+        client_socket.send(f"\nServer: {message}".encode()) #Encode and send the message
+
+        #Check if server wants to quit
+        if message == "quit":
+            print("\nDisconnected.")
+            client_socket.close()
+            break
+
+#Recieve incoming message
+def receive_message(client_socket):
+    while True:
+        #Recieve Messages and decode
+        message = client_socket.recv(bytesize).decode() 
+        #Check if client quits
+        if message == "quit":
+            print("\nDisconnected.")
+            break
+        #Print message
+        else:
+            print(f"\n{message}")
+#Connect incoming client
+def connect_client():
+    pass
+
+
+t1 = threading.Thread(target=send_message)
+t2 = threading.Thread(target=receive_message, args=(client_socket,))
+
+
+
+t1.start()
+t2.start()
+t1.join()
+t2.join()
+
 
 #Close
 server_socket.close()
-
 
 
 
