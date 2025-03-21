@@ -25,6 +25,13 @@ client_socket.send(password.encode())
 #Receive and print login result
 login_response = client_socket.recv(bytesize).decode()
 print(login_response)
+print("\nAvailable commands:")
+print("/commands   - Show this command list")
+print("/available  - Show currently online users")
+print("/\"username\" - Select a user to message")
+print("/quit       - Exit the chat")
+print("Type below:\n")
+
 
 #Receiving messages
 def receive_messages():
