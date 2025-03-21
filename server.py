@@ -20,8 +20,8 @@ server_socket.listen()
 client_socket, client_address = server_socket.accept()
 client_socket_list.append(client_socket)
 #Send notification to the client that he has been connected
-client_socket.send("Connected to Server.".encode()) #Make sure the String is encode
-print("Client Connected")
+client_socket.send("Server Connected.\n".encode()) #Make sure the String is encode
+print("Client Connected.\n")
 
 #Forward a recieved message back to everyone else
 def forward_message(message):
@@ -29,9 +29,8 @@ def forward_message(message):
 
 def send_message():
     while True:
-        message = input("Server: ")
+        message = input("\n")
         client_socket.send(f"\nServer: {message}".encode()) #Encode and send the message
-
         #Check if server wants to quit
         if message == "quit":
             print("\nDisconnected.")
@@ -49,7 +48,9 @@ def receive_message(client_socket):
             break
         #Print message
         else:
-            print(f"\n{message}")
+            print(message)
+            
+
 #Connect incoming client
 def connect_client():
     pass
