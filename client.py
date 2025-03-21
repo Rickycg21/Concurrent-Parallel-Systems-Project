@@ -1,63 +1,47 @@
 import socket
 import threading
 
-host_ip = socket.gethostbyname(socket.gethostname())
+#Declarations
+server_ip = socket.gethostbyname(socket.gethostname())
 port = 2222
 bytesize = 1024
 
-#Creating Client socket
-client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #We use IPV4 and TCP
-#Connecting the Client Socket with an IP adress and the Server's Port
-client_socket.connect((host_ip, port))
-#Receive welcome message
-message = client_socket.recv(bytesize).decode()
-print(message)
+#Connecting to the Server
+client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+client_socket.connect((server_ip, port))
 
+#Login Process
+#Receiving Username
+username_prompt = client_socket.recv(bytesize).decode()
+username = input(username_prompt)
+client_socket.send(username.encode())
 
-#Send a message to the server
-def send_message():
+#Receive Password
+password_prompt = client_socket.recv(bytesize).decode()
+password = input(password_prompt)
+client_socket.send(password.encode())
+
+#Receive and print login result
+login_response = client_socket.recv(bytesize).decode()
+print(login_response)
+
+#Receiving messages
+def receive_messages():
     while True:
-        message = input("\n")
-        client_socket.send(f"\nClient: {message}".encode()) #Encode and send the message
-        #Check if client wants to quit
-        if message == "quit":
-            print("\nDisconnected.")
-            client_socket.close()
-            break
-    
-#Recieve a message from the server
-def receive_message():
-    while True:
-        #Recieve the message and decode
         try:
-            message = client_socket.recv(bytesize).decode() 
-        except OSError:
-            #In case the socket was closed from the other thread
-            break
-        
-        #Check if the server quits
-        if message == "quit":
-            client_socket.send("quit".encode()) #Send Comfirmation to the Server
-            print("\nDisconnected.")
-            client_socket.close()
-            break
-        #Print the message
-        else:
+            message = client_socket.recv(bytesize).decode()
+            if not message:
+                break  #close connection
             print(message)
+        except:
+            break  #Error
 
+#Message Sending Function
+def send_messages():
+    while True:
+        message = input()
+        client_socket.send(message.encode())
 
-
-
-t1 = threading.Thread(target=send_message)
-t2 = threading.Thread(target=receive_message)
-
-t1.start()
-t2.start()
-t1.join()
-t2.join()
-
-client_socket.close()
-
-
-
-
+#Start Chat Threads
+threading.Thread(target=receive_messages, daemon=True).start()
+send_messages()  #Thread that handles input

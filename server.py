@@ -3,72 +3,93 @@ import threading
 
 #Declarations
 host_ip = socket.gethostbyname(socket.gethostname())
-port = 2222
-bytesize = 1024
+port = 2222                                            
+bytesize = 1024                                        
 
-client_socket_list = []
-client_name_list = []
+#Dictionary of all registered users Hardcoded
+registered_users = {
+    "Omar": "1234",
+    "Diego": "1234",
+    "Ricardo": "1234",
+    "Mario": "1234"
+}
+
+#Dictionary to store all active users
+active_users = {}
+user_lock = threading.Lock()  #Thread safety for shared data
+
 
 #Creating Server socket
-server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #We use IPV4 and TCP
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 #Binding the Server Socket to an IP adress and a Port
 server_socket.bind((host_ip, port))
 #Listening for connections
 server_socket.listen()
 
-#Accept connections and get the Client's socket and adrdess
-client_socket, client_address = server_socket.accept()
-client_socket_list.append(client_socket)
-#Send notification to the client that he has been connected
-client_socket.send("Server Connected.\n".encode()) #Make sure the String is encode
-print("Client Connected.\n")
+print(f"Server running")
 
-#Forward a recieved message back to everyone else
-def forward_message(message):
-    pass
+#Forward message to all clients except sender
+def forward(message, sender=None):
+    with user_lock:
+        for user, sock in active_users.items():
+            if user != sender:
+                try:
+                    sock.send(f"{message}\n".encode())
+                except:
+                    pass  #Skip if there's an issue sending
 
-def send_message():
-    while True:
-        message = input("\n")
-        client_socket.send(f"\nServer: {message}".encode()) #Encode and send the message
-        #Check if server wants to quit
-        if message == "quit":
-            print("\nDisconnected.")
+#Handle an individual client
+def handle_client(client_socket, addr):
+    username = None  # tore username once authenticated
+    try:
+        #Prompt for Username
+        client_socket.send("Username: ".encode())
+        username = client_socket.recv(bytesize).decode().strip()
+
+        #Prompt for Password
+        client_socket.send("Password: ".encode())
+        password = client_socket.recv(bytesize).decode().strip()
+
+        #Verify Username and Password
+        if registered_users.get(username) != password:
+            client_socket.send("Login failed. Disconnecting.".encode())
             client_socket.close()
-            break
+            return
 
-#Recieve incoming message
-def receive_message(client_socket):
-    while True:
-        #Recieve Messages and decode
-        message = client_socket.recv(bytesize).decode() 
-        #Check if client quits
-        if message == "quit":
-            print("\nDisconnected.")
-            break
-        #Print message
-        else:
-            print(message)
-            
+        #Prevent multiple logins
+        with user_lock:
+            if username in active_users:
+                client_socket.send("User already logged in.".encode())
+                client_socket.close()
+                return
+            active_users[username] = client_socket  #Add to active user
 
-#Connect incoming client
-def connect_client():
-    pass
+        #Confirm Login
+        client_socket.send(f"Login successful. Welcome {username}".encode())
+        forward(f"[Server]: {username} has joined the chat.", sender=username)
 
+        #Receive and broadcast messages
+        while True:
+            message = client_socket.recv(bytesize).decode()
+            if not message:
+                break  #Client disconnected
+            print(f"[{username}]: {message}")
+            forward(f"{username}: {message}", sender=username)
 
-t1 = threading.Thread(target=send_message)
-t2 = threading.Thread(target=receive_message, args=(client_socket,))
+    except Exception as e:
+        print(f"[ERROR] {e}")
 
-
-
-t1.start()
-t2.start()
-t1.join()
-t2.join()
-
-
-#Close
-server_socket.close()
-
+    finally:
+        #Cleanup on disconnect
+        with user_lock:
+            if username in active_users:
+                del active_users[username]
+        client_socket.close()
+        print(f"{username} disconnected")
+        forward(f"[Server]: {username} has left the chat.", sender=username)
 
 
+#Accept and handle clients
+while True:
+    client_socket, client_address = server_socket.accept()
+    threading.Thread(target=handle_client, args=(client_socket, client_address)).start()
