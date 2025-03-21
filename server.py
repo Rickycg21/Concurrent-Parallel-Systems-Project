@@ -13,8 +13,8 @@ bytesize = 1024
 registered_users = {
     "Omar": "1234",
     "Diego": "1234",
-    "Ricardo": "1234",
-    "Mario": "1234"
+    "Ramon": "1234",
+    "Marcos": "1234"
 }
 
 active_users = {}  #Username to client_socket for currently logged-in users
