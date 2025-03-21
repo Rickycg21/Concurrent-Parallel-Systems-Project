@@ -5,6 +5,7 @@ import threading
 server_ip = socket.gethostbyname(socket.gethostname())
 port = 2222
 bytesize = 1024
+stop_threads = threading.Event()
 
 #Connecting to the Server
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -27,20 +28,30 @@ print(login_response)
 
 #Receiving messages
 def receive_messages():
-    while True:
+    while not stop_threads.is_set():
         try:
-            message = client_socket.recv(bytesize).decode()
+            message = client_socket.recv(1024).decode()
             if not message:
-                break  #close connection
+                break
             print(message)
         except:
-            break  #Error
+            break
 
 #Message Sending Function
 def send_messages():
-    while True:
+    while not stop_threads.is_set():
         message = input()
         client_socket.send(message.encode())
+
+        if message.strip().lower() == "/quit":
+            stop_threads.set()  #Signal to stop receiving thread
+            break
+
+    client_socket.close()
+    print("Disconnected from server.")
+
+
+
 
 #Start Chat Threads
 threading.Thread(target=receive_messages, daemon=True).start()

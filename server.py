@@ -73,8 +73,13 @@ def handle_client(client_socket, addr):
             message = client_socket.recv(bytesize).decode()
             if not message:
                 break  #Client disconnected
+
+            if message.strip() == "/quit":
+                break  #User wants to quit
+
             print(f"[{username}]: {message}")
             forward(f"{username}: {message}", sender=username)
+
 
     except Exception as e:
         print(f"[ERROR] {e}")
