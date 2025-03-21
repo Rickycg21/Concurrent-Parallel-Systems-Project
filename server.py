@@ -1,9 +1,13 @@
 import socket
+import threading
 
 #Declarations
 host_ip = socket.gethostbyname(socket.gethostname())
 port = 2222
 bytesize = 1024
+
+client_socket_list = []
+client_name_list = []
 
 #Creating Server socket
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #We use IPV4 and TCP
@@ -11,6 +15,10 @@ server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #We use IPV4 a
 server_socket.bind((host_ip, port))
 #Listening for connections
 server_socket.listen()
+
+
+
+
 #Accept connections and get the Client's socket and adrdess
 client_socket, client_address = server_socket.accept()
 #Send notification to the client that he has been connected
@@ -34,3 +42,7 @@ while True:
 
 #Close
 server_socket.close()
+
+
+
+

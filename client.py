@@ -1,13 +1,12 @@
 import socket
+import threading
 
 host_ip = socket.gethostbyname(socket.gethostname())
 port = 2222
 bytesize = 1024
 
-
 #Creating Client socket
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #We use IPV4 and TCP
-
 #Connecting the Client Socket with an IP adress and the Server's Port
 client_socket.connect((host_ip, port))
 
@@ -28,3 +27,9 @@ while True:
 
 #Close
 client_socket.close()
+
+
+
+
+
+
