@@ -151,8 +151,3 @@ def accept_connections():
 #Start threads
 threading.Thread(target=queue_manager, daemon=True).start() #Run queue manager in background
 accept_connections() #Start accepting clients
-
-
-
-
-
