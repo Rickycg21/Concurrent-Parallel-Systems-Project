@@ -9,8 +9,14 @@ server_socket.bind((socket.gethostbyname(socket.gethostname()), 22222))
 #Listening for connections
 server_socket.listen()
 
-#Accept connections and get the Client's socket and adrdess
+
 while True:
+    #Accept connections and get the Client's socket and adrdess
     client_socket, client_address = server_socket.accept()
-    print(client_socket)
-    print(f"Connected to {client_address}")
+
+    #Send notification to the client that he has been connected
+    client_socket.send("Connected".encode()) #Make sure the String is encoded
+
+    #Close
+    server_socket.close()
+    break
