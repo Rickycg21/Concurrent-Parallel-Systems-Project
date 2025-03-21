@@ -3,6 +3,7 @@ import threading
 
 #Declarations
 bytesize = 1024
+port = 2333
 server_ip = socket.gethostbyname(socket.gethostname())
 stop_threads = threading.Event()  #Used to stop threads on /quit
 target_user = None  #Store selected private messaging target
@@ -11,7 +12,7 @@ target_user = None  #Store selected private messaging target
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #We use IPV4 and TCP
 
 #Connect to server
-client_socket.connect((server_ip, 2222))
+client_socket.connect((server_ip, port))
 
 #Login authentication
 username_prompt = client_socket.recv(bytesize).decode()

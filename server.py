@@ -1,9 +1,10 @@
 import socket
 import threading
+from datetime import datetime
 
 #Declarations
 host_ip = socket.gethostbyname(socket.gethostname()) 
-port = 2222                                           
+port = 2333                                           
 bytesize = 1024                             
 
 #Dictionary of valid users and their passwords
@@ -28,11 +29,12 @@ print(f"[+] Server running at {host_ip}:{port}")
 
 #Forward a recieved message back to it's real destination
 def forward(message, sender=None):
+    timestamp = datetime.now().strftime("[%H:%M:%S] ")  #Add timestamp prefix
     with user_lock:
         for user, sock in active_users.items():
             if user != sender:  #Don't send message back to sender
                 try:
-                    sock.send(f"{message}\n".encode())  #Send the message
+                    sock.send(f"{timestamp}{message}\n".encode())  #Send the message
                 except:
                     pass  #Ignore failed sends
 
@@ -86,7 +88,8 @@ def handle_client(client_socket, addr):
                 client_socket.send(response.encode())  #Send user list to requester
                 continue
 
-            print(f"[{username}]: {message}")  #Log to server console
+            timestamp = datetime.now().strftime("[%H:%M:%S]")  #Timestamp for server log
+            print(f"{timestamp} [{username}]: {message}")  #Log to server console
             forward(f"{username}: {message}", sender=username)  #Forward to others
 
     except Exception as e:
